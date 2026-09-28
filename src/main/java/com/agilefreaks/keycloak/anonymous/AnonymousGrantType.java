@@ -31,8 +31,11 @@ import java.util.Set;
  *
  * <pre>
  * POST /realms/{realm}/protocol/openid-connect/token
- *   grant_type=urn:moma:params:oauth:grant-type:anonymous&amp;client_id=…&amp;scope=openid anonymous
+ *   grant_type=urn:keycloak-anonymous-user:grant-type:anonymous&amp;client_id=…&amp;scope=openid anonymous
  * </pre>
+ *
+ * <p>The URN is whatever {@link AnonymousGrantTypeFactory} registered, the default above unless
+ * the deployment configured another.
  *
  * <p>The {@code anonymous} client scope is required: being assigned it is what entitles a client to
  * guest sessions at all, and Keycloak refuses the request for a client that lacks it. The guest
@@ -40,8 +43,17 @@ import java.util.Set;
  */
 public class AnonymousGrantType extends OAuth2GrantTypeBase {
 
-    public static final String GRANT_TYPE = "urn:moma:params:oauth:grant-type:anonymous";
     static final String ANONYMOUS_SCOPE = GuestIdentity.ROLE;
+
+    private final String grantType;
+
+    AnonymousGrantType(String grantType) {
+        this.grantType = grantType;
+    }
+
+    String grantType() {
+        return grantType;
+    }
 
     @Override
     public Response process(Context context) {
@@ -72,7 +84,7 @@ public class AnonymousGrantType extends OAuth2GrantTypeBase {
 
         UserSessionModel userSession = new UserSessionManager(session).createUserSession(
                 authSession.getParentSession().getId(), realm, guest, guest.getUsername(),
-                clientConnection.getRemoteHost(), GRANT_TYPE, false, null, null,
+                clientConnection.getRemoteHost(), grantType, false, null, null,
                 UserSessionModel.SessionPersistenceState.PERSISTENT);
 
         event.user(guest).session(userSession).detail("anon", "true");
@@ -80,7 +92,7 @@ public class AnonymousGrantType extends OAuth2GrantTypeBase {
         AuthenticationManager.setClientScopesInSession(session, authSession);
         ClientSessionContext clientSessionCtx =
                 TokenManager.attachAuthenticationSession(session, userSession, authSession);
-        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, context.getGrantType());
+        clientSessionCtx.setAttribute(Constants.GRANT_TYPE, grantType);
 
         updateUserSessionFromClientAuth(userSession);
 

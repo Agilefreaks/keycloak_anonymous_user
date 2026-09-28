@@ -46,6 +46,8 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AnonymousGrantTypeTest {
 
+    private static final String GRANT_TYPE = AnonymousGrantTypeFactory.DEFAULT_GRANT_TYPE;
+
     @Mock
     KeycloakSession session;
     @Mock
@@ -85,7 +87,7 @@ class AnonymousGrantTypeTest {
         // CorsErrorResponseException builds its response through the Cors provider.
         when(cors.add(any(Response.ResponseBuilder.class)))
                 .thenAnswer(i -> i.getArgument(0, Response.ResponseBuilder.class).build());
-        form.putSingle(OAuth2Constants.GRANT_TYPE, AnonymousGrantType.GRANT_TYPE);
+        form.putSingle(OAuth2Constants.GRANT_TYPE, GRANT_TYPE);
     }
 
     private OAuth2GrantType.Context context() {
@@ -97,7 +99,7 @@ class AnonymousGrantTypeTest {
     void withoutTheAnonymousScopeTheGrantRefuses() {
         form.putSingle(OAuth2Constants.SCOPE, "openid");
 
-        Throwable thrown = catchThrowable(() -> new AnonymousGrantType().process(context()));
+        Throwable thrown = catchThrowable(() -> new AnonymousGrantType(GRANT_TYPE).process(context()));
 
         assertThat(thrown).isInstanceOf(CorsErrorResponseException.class)
                 .hasMessageContaining(OAuthErrorException.INVALID_SCOPE);
@@ -106,7 +108,7 @@ class AnonymousGrantTypeTest {
 
     @Test
     void aMissingScopeParameterIsRefusedToo() {
-        Throwable thrown = catchThrowable(() -> new AnonymousGrantType().process(context()));
+        Throwable thrown = catchThrowable(() -> new AnonymousGrantType(GRANT_TYPE).process(context()));
 
         assertThat(thrown).isInstanceOf(CorsErrorResponseException.class)
                 .hasMessageContaining(OAuthErrorException.INVALID_SCOPE);
@@ -116,7 +118,7 @@ class AnonymousGrantTypeTest {
     void aScopeMerelyContainingTheWordIsNotEnough() {
         form.putSingle(OAuth2Constants.SCOPE, "openid anonymous-ish");
 
-        assertThat(catchThrowable(() -> new AnonymousGrantType().process(context())))
+        assertThat(catchThrowable(() -> new AnonymousGrantType(GRANT_TYPE).process(context())))
                 .isInstanceOf(CorsErrorResponseException.class);
     }
 
@@ -132,7 +134,7 @@ class AnonymousGrantTypeTest {
 
     @Test
     void guestSessionsAreLoggedAsLoginsAndCarryARefreshToken() {
-        AnonymousGrantType grant = new AnonymousGrantType();
+        AnonymousGrantType grant = new AnonymousGrantType(GRANT_TYPE);
 
         assertThat(grant.getEventType()).isEqualTo(EventType.LOGIN);
         assertThat(grant.useRefreshToken()).isTrue();

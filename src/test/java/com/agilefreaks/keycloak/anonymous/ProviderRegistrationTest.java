@@ -27,9 +27,9 @@ class ProviderRegistrationTest {
     }
 
     @Test
-    void theGrantTypeKeepsItsUrn() {
+    void theGrantTypeDefaultsToItsUrn() {
         assertThat(new AnonymousGrantTypeFactory().getId())
-                .isEqualTo("urn:moma:params:oauth:grant-type:anonymous");
+                .isEqualTo("urn:keycloak-anonymous-user:grant-type:anonymous");
     }
 
     @Test
