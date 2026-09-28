@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.keycloak.Config;
 import org.keycloak.authentication.Authenticator;

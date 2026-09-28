@@ -1,9 +1,10 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.timer.TimerProvider;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -11,6 +12,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -23,6 +25,8 @@ class GuestReaperSchedulerTest {
 
     @Mock
     KeycloakSessionFactory factory;
+    @Mock
+    TimerProvider timer;
 
     private final GuestReaperScheduler scheduler = new GuestReaperScheduler();
 
@@ -82,8 +86,25 @@ class GuestReaperSchedulerTest {
     }
 
     @Test
+    void theSweepIsRegisteredOnTheTimerUnderItsTaskName() {
+        GuestReaperScheduler.scheduleOn(timer, 30, 90, 500);
+
+        verify(timer).scheduleTask(any(GuestReaperTask.class), eq(90 * 60_000L), eq(GuestReaperScheduler.TASK_NAME));
+    }
+
+    @Test
+    void withoutATimerNothingIsScheduledAndBootCarriesOn() {
+        GuestReaperScheduler.scheduleOn(null, 30, 90, 500);
+    }
+
+    @Test
     void theListenerItselfDoesNothing() {
         assertThat(scheduler.create(null)).isNotNull();
+        scheduler.create(null).onEvent(null);
+        scheduler.create(null).onEvent(null, false);
+        scheduler.create(null).close();
+        scheduler.init(null);
+        scheduler.close();
         assertThat(scheduler.getId()).isEqualTo("moma-anon-reaper");
     }
 }

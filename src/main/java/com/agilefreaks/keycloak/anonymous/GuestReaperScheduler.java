@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.jboss.logging.Logger;
 import org.keycloak.Config;
@@ -77,17 +77,20 @@ public class GuestReaperScheduler implements EventListenerProviderFactory {
         int intervalMinutes = intervalMinutes();
         int batchSize = Math.max(1, Env.number(Env.REAPER_BATCH, 500));
 
-        KeycloakModelUtils.runJobInTransaction(factory, session -> {
-            TimerProvider timer = session.getProvider(TimerProvider.class);
-            if (timer == null) {
-                LOG.warn("no timer provider available; guest reaper not scheduled");
-                return;
-            }
-            timer.scheduleTask(new GuestReaperTask(maxIdleDays, batchSize),
-                    intervalMinutes * 60L * 1000L, TASK_NAME);
-            LOG.infof("guest reaper scheduled every %dm, deleting guests unused for %dd (batch %d)",
-                    intervalMinutes, maxIdleDays, batchSize);
-        });
+        KeycloakModelUtils.runJobInTransaction(factory,
+                session -> scheduleOn(session.getProvider(TimerProvider.class),
+                        maxIdleDays, intervalMinutes, batchSize));
+    }
+
+    static void scheduleOn(TimerProvider timer, int maxIdleDays, int intervalMinutes, int batchSize) {
+        if (timer == null) {
+            LOG.warn("no timer provider available; guest reaper not scheduled");
+            return;
+        }
+        timer.scheduleTask(new GuestReaperTask(maxIdleDays, batchSize),
+                intervalMinutes * 60L * 1000L, TASK_NAME);
+        LOG.infof("guest reaper scheduled every %dm, deleting guests unused for %dd (batch %d)",
+                intervalMinutes, maxIdleDays, batchSize);
     }
 
     @Override

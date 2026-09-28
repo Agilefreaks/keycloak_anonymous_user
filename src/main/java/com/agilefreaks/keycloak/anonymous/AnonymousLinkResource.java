@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;

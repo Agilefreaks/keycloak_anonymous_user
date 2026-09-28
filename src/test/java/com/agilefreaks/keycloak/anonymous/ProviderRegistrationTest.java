@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.junit.jupiter.api.Test;
 import org.keycloak.models.AuthenticationExecutionModel;
@@ -60,6 +60,31 @@ class ProviderRegistrationTest {
                 .containsExactly(AnonymousLinkResourceProviderFactory.class.getName());
         assertThat(serviceFile("org.keycloak.events.EventListenerProviderFactory"))
                 .containsExactly(GuestReaperScheduler.class.getName());
+    }
+
+    @Test
+    void eachFactoryCreatesItsProviderAndNeedsNoLifecycle() {
+        AnonymousGrantTypeFactory grant = new AnonymousGrantTypeFactory();
+        grant.init(null);
+        grant.postInit(null);
+        assertThat(grant.create(null)).isInstanceOf(AnonymousGrantType.class);
+        grant.close();
+
+        AnonymousLinkAuthenticatorFactory link = new AnonymousLinkAuthenticatorFactory();
+        link.init(null);
+        link.postInit(null);
+        assertThat(link.create(null)).isInstanceOf(AnonymousLinkAuthenticator.class);
+        assertThat(link.getDisplayType()).isNotBlank();
+        assertThat(link.getReferenceCategory()).isEqualTo("anonymous");
+        assertThat(link.getHelpText()).contains("anon_link_code");
+        assertThat(link.isUserSetupAllowed()).isFalse();
+        link.close();
+
+        AnonymousLinkResourceProviderFactory resource = new AnonymousLinkResourceProviderFactory();
+        resource.init(null);
+        resource.postInit(null);
+        assertThat(resource.create(null)).isInstanceOf(AnonymousLinkResource.class);
+        resource.close();
     }
 
     @Test

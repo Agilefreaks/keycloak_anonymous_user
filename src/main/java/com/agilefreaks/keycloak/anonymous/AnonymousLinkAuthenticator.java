@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import jakarta.ws.rs.core.MultivaluedMap;
 import org.jboss.logging.Logger;

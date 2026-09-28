@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import jakarta.ws.rs.core.Response;
 import org.keycloak.OAuth2Constants;

@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.keycloak.common.util.Time;
 import org.keycloak.models.KeycloakSession;

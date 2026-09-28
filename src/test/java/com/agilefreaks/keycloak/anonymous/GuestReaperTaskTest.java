@@ -1,4 +1,4 @@
-package org.moma.keycloak.anonymous;
+package com.agilefreaks.keycloak.anonymous;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

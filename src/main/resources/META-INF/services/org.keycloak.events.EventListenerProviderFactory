@@ -1,1 +1,1 @@
-org.moma.keycloak.anonymous.GuestReaperScheduler
+com.agilefreaks.keycloak.anonymous.GuestReaperScheduler
