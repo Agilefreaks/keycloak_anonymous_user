@@ -1,0 +1,16 @@
+# Build + test the jar locally without installing Maven/JDK:
+#
+#   docker compose run --rm build
+#
+# Runs the unit tests and produces target/keycloak-anonymous-user.jar.
+services:
+  build:
+    image: maven:3.9-eclipse-temurin-21
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - maven-cache:/root/.m2
+    command: mvn -B clean package
+
+volumes:
+  maven-cache:
