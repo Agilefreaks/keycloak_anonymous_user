@@ -19,7 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): the link code is single-use, short-lived, and carries the
+ * Contract (README): the link code is single-use, short-lived, and carries the
  * guest subject — never the guest token itself, which would outlive a leak.
  */
 @ExtendWith(MockitoExtension.class)

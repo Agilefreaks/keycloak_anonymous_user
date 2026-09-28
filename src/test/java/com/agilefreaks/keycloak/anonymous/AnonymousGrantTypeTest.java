@@ -44,7 +44,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): the grant issues a guest session, and only when the
+ * Contract (README): the grant issues a guest session, and only when the
  * caller asked for the anonymous scope — requesting it is what makes Keycloak check that the
  * client is entitled to guest sessions. Issuing tokens for real is exercised against a running
  * realm, not here.

@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): a guest is a PII-free row carrying only the guest
+ * Contract (README): a guest is a PII-free row carrying only the guest
  * markers, and the account it later links to keeps a record of the subjects it absorbed.
  */
 @ExtendWith(MockitoExtension.class)

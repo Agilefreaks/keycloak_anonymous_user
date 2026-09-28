@@ -31,7 +31,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): guests nobody has used since the cutoff are deleted along
+ * Contract (README): guests nobody has used since the cutoff are deleted along
  * with their sessions, at most `batch` per sweep. Idleness is last use, not row age — the realm's
  * sessions outlive any sane cutoff, and a guest still using the app must not lose its identity.
  */

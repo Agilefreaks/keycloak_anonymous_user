@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): after a guest signs in for real, the email account stays
+ * Contract (README): after a guest signs in for real, the email account stays
  * the account, the guest subject is recorded in its `anon_subs`, and the guest row goes away. The
  * code rides on the token request; a missing, expired or replayed one never blocks the login.
  */

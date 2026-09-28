@@ -34,7 +34,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Contract (docs/anonymous-sessions.md): POST /realms/{realm}/anonymous/link-code trades a guest
+ * Contract (README): POST /realms/{realm}/anonymous/link-code trades a guest
  * access token for a single-use code. Possession of a guest token is the proof — anything else is
  * refused, and no code is minted.
  */
