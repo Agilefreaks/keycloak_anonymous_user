@@ -39,6 +39,8 @@ public class GuestReaperScheduler implements EventListenerProviderFactory {
         }
     };
 
+    private Options options;
+
     @Override
     public String getId() {
         return PROVIDER_ID;
@@ -51,49 +53,86 @@ public class GuestReaperScheduler implements EventListenerProviderFactory {
 
     @Override
     public void init(Config.Scope config) {
+        options = Options.from(config);
     }
 
     @Override
     public void postInit(KeycloakSessionFactory factory) {
-        if (!Env.flag(Env.REAPER_ENABLED, true)) {
-            LOG.infof("guest reaper disabled (%s=false)", Env.REAPER_ENABLED);
+        if (!options.enabled()) {
+            LOG.info("guest reaper disabled (spi-events-listener--anonymous-reaper--enabled=false)");
             return;
         }
         factory.register(event -> {
             if (event instanceof PostMigrationEvent) {
-                schedule(factory);
+                KeycloakModelUtils.runJobInTransaction(factory,
+                        session -> scheduleOn(session.getProvider(TimerProvider.class), options));
             }
         });
     }
 
-    /** Minutes win when set, so a sweep can be exercised without waiting out the 6-hour default. */
-    static int intervalMinutes() {
-        return Math.max(1, Env.number(Env.REAPER_INTERVAL_MINUTES,
-                Math.max(1, Env.number(Env.REAPER_INTERVAL_HOURS, 6)) * 60));
-    }
-
-    private void schedule(KeycloakSessionFactory factory) {
-        int maxIdleDays = Env.number(Env.REAPER_MAX_IDLE_DAYS, 30);
-        int intervalMinutes = intervalMinutes();
-        int batchSize = Math.max(1, Env.number(Env.REAPER_BATCH, 500));
-
-        KeycloakModelUtils.runJobInTransaction(factory,
-                session -> scheduleOn(session.getProvider(TimerProvider.class),
-                        maxIdleDays, intervalMinutes, batchSize));
-    }
-
-    static void scheduleOn(TimerProvider timer, int maxIdleDays, int intervalMinutes, int batchSize) {
+    static void scheduleOn(TimerProvider timer, Options options) {
         if (timer == null) {
             LOG.warn("no timer provider available; guest reaper not scheduled");
             return;
         }
-        timer.scheduleTask(new GuestReaperTask(maxIdleDays, batchSize),
-                intervalMinutes * 60L * 1000L, TASK_NAME);
-        LOG.infof("guest reaper scheduled every %dm, deleting guests unused for %dd (batch %d)",
-                intervalMinutes, maxIdleDays, batchSize);
+        timer.scheduleTask(new GuestReaperTask(options.maxIdleDays(), options.unusedMaxIdleDays(), options.batch()),
+                options.intervalMinutes() * 60L * 1000L, TASK_NAME);
+        LOG.infof("guest reaper scheduled every %dm, deleting guests idle for %dd, or %dd if never refreshed (batch %d)",
+                options.intervalMinutes(), options.maxIdleDays(), options.unusedMaxIdleDays(), options.batch());
     }
 
     @Override
     public void close() {
+    }
+
+    /** The reaper's SPI options. A malformed value stops the server rather than silently using a default. */
+    record Options(boolean enabled, int maxIdleDays, int unusedMaxIdleDays, int intervalMinutes, int batch) {
+
+        static Options from(Config.Scope scope) {
+            Integer minutes = number(scope, "interval-minutes");
+            int hours = Math.max(1, orDefault(number(scope, "interval-hours"), 6));
+            return new Options(
+                    flag(scope, "enabled", true),
+                    Math.max(0, orDefault(number(scope, "max-idle-days"), 30)),
+                    Math.max(0, orDefault(number(scope, "unused-max-idle-days"), 7)),
+                    Math.max(1, minutes != null ? minutes : hours * 60),
+                    Math.max(1, orDefault(number(scope, "batch"), 500)));
+        }
+
+        private static String text(Config.Scope scope, String key) {
+            String raw = scope.get(key);
+            return raw == null || raw.isBlank() ? null : raw.trim();
+        }
+
+        private static boolean flag(Config.Scope scope, String key, boolean fallback) {
+            String raw = text(scope, key);
+            if (raw == null) {
+                return fallback;
+            }
+            if (raw.equalsIgnoreCase("true") || raw.equalsIgnoreCase("false")) {
+                return Boolean.parseBoolean(raw);
+            }
+            throw new IllegalArgumentException(invalid(key, "true or false", raw));
+        }
+
+        private static String invalid(String key, String expected, String raw) {
+            return "spi-events-listener--" + PROVIDER_ID + "--" + key + " must be " + expected + ", got '" + raw + "'";
+        }
+
+        private static Integer number(Config.Scope scope, String key) {
+            String raw = text(scope, key);
+            if (raw == null) {
+                return null;
+            }
+            try {
+                return Integer.parseInt(raw);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(invalid(key, "a whole number", raw), e);
+            }
+        }
+
+        private static int orDefault(Integer value, int fallback) {
+            return value == null ? fallback : value;
+        }
     }
 }

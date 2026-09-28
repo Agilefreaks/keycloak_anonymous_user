@@ -93,16 +93,86 @@ class GuestReaperTaskTest {
     }
 
     private UserSessionModel refreshedAt(int when) {
+        return session(0, when);
+    }
+
+    private UserSessionModel session(int started, int lastRefresh) {
         UserSessionModel s = mock(UserSessionModel.class);
-        when(s.getLastSessionRefresh()).thenReturn(when);
+        when(s.getStarted()).thenReturn(started);
+        when(s.getLastSessionRefresh()).thenReturn(lastRefresh);
         return s;
+    }
+
+    private static final int DAY = 24 * 3600;
+
+    @Test
+    void aGuestThatNeverRefreshedGoesAfterTheShorterUnusedCutoff() {
+        int created = now - 10 * DAY;
+        UserModel unused = guest("unused", created);
+        candidates(unused);
+        when(sessions.getUserSessionsStream(realm, unused))
+                .thenAnswer(invocation -> Stream.of(session(created, created + 1)));
+
+        new GuestReaperTask(30, 7, 500).run(session);
+
+        verify(users).removeUser(realm, unused);
+    }
+
+    @Test
+    void aGuestWhoseSessionIsGoneCountsAsUnused() {
+        // Refreshing needs the session, so a guest without one can never come back.
+        UserModel orphan = guest("orphan", now - 10 * DAY);
+        candidates(orphan);
+
+        new GuestReaperTask(30, 7, 500).run(session);
+
+        verify(users).removeUser(realm, orphan);
+    }
+
+    @Test
+    void aGuestThatRefreshedEvenOnceIsJudgedOnTheLongerIdleCutoff() {
+        int created = now - 10 * DAY;
+        UserModel returning = guest("returning", created);
+        candidates(returning);
+        when(sessions.getUserSessionsStream(realm, returning))
+                .thenAnswer(invocation -> Stream.of(session(created, created + DAY)));
+
+        new GuestReaperTask(30, 7, 500).run(session);
+
+        verify(users, never()).removeUser(any(), any());
+    }
+
+    @Test
+    void anUnusedGuestYoungerThanTheUnusedCutoffSurvives() {
+        int created = now - 3 * DAY;
+        UserModel fresh = guest("fresh", created);
+        candidates(fresh);
+        when(sessions.getUserSessionsStream(realm, fresh))
+                .thenAnswer(invocation -> Stream.of(session(created, created)));
+
+        new GuestReaperTask(30, 7, 500).run(session);
+
+        verify(users, never()).removeUser(any(), any());
+    }
+
+    @Test
+    void anUnusedCutoffLongerThanTheIdleOneStillApplies() {
+        int created = now - 40 * DAY;
+        UserModel unused = guest("unused", created);
+        candidates(unused);
+        when(sessions.getUserSessionsStream(realm, unused))
+                .thenAnswer(invocation -> Stream.of(session(created, created)));
+
+        new GuestReaperTask(30, 60, 500).run(session);
+
+        verify(users, never()).removeUser(any(), any());
     }
 
     @Test
     void aSweepRunsAgainstTheRealmItIsClearing() {
         candidates();
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         // Without a realm on the context the user store throws "Session not bound to a realm".
         verify(keycloakContext).setRealm(realm);
@@ -115,7 +185,7 @@ class GuestReaperTaskTest {
         when(sessions.getUserSessionsStream(realm, abandoned))
                 .thenAnswer(invocation -> Stream.of(refreshedAt(now - 60 * 24 * 3600)));
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(sessions).removeUserSessions(realm, abandoned);
         verify(users).removeUser(realm, abandoned);
@@ -128,7 +198,7 @@ class GuestReaperTaskTest {
         when(sessions.getUserSessionsStream(realm, active))
                 .thenAnswer(invocation -> Stream.of(refreshedAt(now - 3600)));
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(users, never()).removeUser(any(), any());
     }
@@ -140,7 +210,7 @@ class GuestReaperTaskTest {
         when(sessions.getOfflineUserSessionsStream(realm, mobile))
                 .thenAnswer(invocation -> Stream.of(refreshedAt(now - 2 * 24 * 3600)));
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(users, never()).removeUser(any(), any());
     }
@@ -151,7 +221,7 @@ class GuestReaperTaskTest {
         UserModel old = guest("old", now - 90 * 24 * 3600);
         candidates(young, old);
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(users, never()).removeUser(realm, young);
         verify(users).removeUser(realm, old);
@@ -162,7 +232,7 @@ class GuestReaperTaskTest {
         UserModel young = guest("young", now - 3600);
         candidates(young);
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(sessions, never()).getUserSessionsStream(any(), any(UserModel.class));
         verify(sessions, never()).getOfflineUserSessionsStream(any(), any(UserModel.class));
@@ -175,7 +245,7 @@ class GuestReaperTaskTest {
                 guest("b", now - 100 * 24 * 3600),
                 guest("c", now - 100 * 24 * 3600));
 
-        new GuestReaperTask(30, 2).run(session);
+        new GuestReaperTask(30, 7, 2).run(session);
 
         verify(users, times(2)).removeUser(eq(realm), any());
     }
@@ -184,7 +254,7 @@ class GuestReaperTaskTest {
     void guestsBeyondTheFirstPageAreReachedToo() {
         candidates(oldGuests(GuestReaperTask.PAGE_SIZE + 50));
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(users, times(GuestReaperTask.PAGE_SIZE + 50)).removeUser(eq(realm), any());
     }
@@ -193,7 +263,7 @@ class GuestReaperTaskTest {
     void pagingStopsOnceTheBatchIsFilled() {
         candidates(oldGuests(GuestReaperTask.PAGE_SIZE + 50));
 
-        new GuestReaperTask(30, 2).run(session);
+        new GuestReaperTask(30, 7, 2).run(session);
 
         verify(users, never()).searchForUserStream(any(), eq(GuestReaperTask.GUESTS), eq(GuestReaperTask.PAGE_SIZE), anyInt());
         verify(users, times(2)).removeUser(eq(realm), any());
@@ -207,7 +277,7 @@ class GuestReaperTaskTest {
         org.mockito.Mockito.doThrow(new IllegalStateException("fk violation"))
                 .when(users).removeUser(realm, bad);
 
-        new GuestReaperTask(30, 500).run(session);
+        new GuestReaperTask(30, 7, 500).run(session);
 
         verify(users).removeUser(realm, good);
     }

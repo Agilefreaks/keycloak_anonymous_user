@@ -11,6 +11,7 @@ import org.keycloak.timer.ScheduledTask;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Deletes guests nobody has used in a while, sessions and all.
@@ -19,6 +20,9 @@ import java.util.Map;
  * long-lived sessions would keep an abandoned guest for as long as its session lasts, while a
  * flat age cap would delete the identity of someone still using the app. A guest that comes back after the cutoff simply gets a new one,
  * exactly as if the app had been reinstalled.
+ *
+ * <p>A guest that never refreshed at all gets a shorter cutoff: every install mints one, most are
+ * never used again, and waiting the full idle window for those would multiply the table by it.
  *
  * <p>Guest tokens can be minted by anyone holding the public client id, so this is the backstop
  * for a user table that otherwise grows with every install.
@@ -30,21 +34,35 @@ public class GuestReaperTask implements ScheduledTask {
     static final int PAGE_SIZE = 100;
     static final Map<String, String> GUESTS = Map.of(GuestIdentity.ATTR_ANON, "true", UserModel.EXACT, "true");
 
+    /** Session creation and the first token response land a moment apart; no real refresh comes that soon. */
+    static final int NEVER_REFRESHED_SLACK_SECONDS = 60;
+
+    private static final int DAY_SECONDS = 24 * 60 * 60;
+
     private final int maxIdleDays;
+    private final int unusedMaxIdleDays;
     private final int batchSize;
 
-    GuestReaperTask(int maxIdleDays, int batchSize) {
+    GuestReaperTask(int maxIdleDays, int unusedMaxIdleDays, int batchSize) {
         this.maxIdleDays = maxIdleDays;
+        this.unusedMaxIdleDays = unusedMaxIdleDays;
         this.batchSize = batchSize;
     }
 
     @Override
     public void run(KeycloakSession session) {
-        int cutoff = Time.currentTime() - (maxIdleDays * 24 * 60 * 60);
-        session.realms().getRealmsStream().forEach(realm -> reap(session, realm, cutoff));
+        int now = Time.currentTime();
+        Cutoffs cutoffs = new Cutoffs(now - maxIdleDays * DAY_SECONDS, now - unusedMaxIdleDays * DAY_SECONDS);
+        session.realms().getRealmsStream().forEach(realm -> reap(session, realm, cutoffs));
     }
 
-    private void reap(KeycloakSession session, RealmModel realm, int cutoff) {
+    private record Cutoffs(int idle, int unused) {
+        int latest() {
+            return Math.max(idle, unused);
+        }
+    }
+
+    private void reap(KeycloakSession session, RealmModel realm, Cutoffs cutoffs) {
         // Required: outside a request there is no realm on the context, and the user storage layer
         // dereferences it ("Session not bound to a realm").
         session.getContext().setRealm(realm);
@@ -55,8 +73,8 @@ public class GuestReaperTask implements ScheduledTask {
             List<UserModel> page = session.users().searchForUserStream(realm, GUESTS, first, PAGE_SIZE).toList();
             page.stream()
                     // A guest cannot have been idle longer than it has existed: no session lookup needed.
-                    .filter(guest -> GuestIdentity.createdAt(guest) < cutoff)
-                    .filter(guest -> lastRefresh(session, realm, guest) < cutoff)
+                    .filter(guest -> GuestIdentity.createdAt(guest) < cutoffs.latest())
+                    .filter(guest -> isIdle(session, realm, guest, cutoffs))
                     .limit(batchSize - idle.size())
                     .forEach(idle::add);
             if (page.size() < PAGE_SIZE) {
@@ -78,16 +96,22 @@ public class GuestReaperTask implements ScheduledTask {
                 LOG.warnf(e, "could not remove idle guest %s in realm %s", guest.getId(), realm.getName());
             }
         }
-        LOG.infof("removed %d idle guest user(s) in realm %s (unused for %d day(s))",
-                removed, realm.getName(), maxIdleDays);
+        LOG.infof("removed %d idle guest user(s) in realm %s (idle for %d day(s), or %d if never refreshed)",
+                removed, realm.getName(), maxIdleDays, unusedMaxIdleDays);
     }
 
-    private static int lastRefresh(KeycloakSession session, RealmModel realm, UserModel guest) {
-        int online = session.sessions().getUserSessionsStream(realm, guest)
-                .mapToInt(UserSessionModel::getLastSessionRefresh).max().orElse(Integer.MIN_VALUE);
-        int offline = session.sessions().getOfflineUserSessionsStream(realm, guest)
-                .mapToInt(UserSessionModel::getLastSessionRefresh).max().orElse(Integer.MIN_VALUE);
-        return Math.max(online, offline);
+    /** A guest with no session left counts as never refreshed: refreshing needs the session. */
+    private static boolean isIdle(KeycloakSession session, RealmModel realm, UserModel guest, Cutoffs cutoffs) {
+        int lastRefresh = Stream.concat(
+                        session.sessions().getUserSessionsStream(realm, guest),
+                        session.sessions().getOfflineUserSessionsStream(realm, guest))
+                .filter(s -> s.getLastSessionRefresh() - s.getStarted() > NEVER_REFRESHED_SLACK_SECONDS)
+                .mapToInt(UserSessionModel::getLastSessionRefresh)
+                .max().orElse(Integer.MIN_VALUE);
+        if (lastRefresh == Integer.MIN_VALUE) {
+            return GuestIdentity.createdAt(guest) < cutoffs.unused();
+        }
+        return lastRefresh < cutoffs.idle();
     }
 
     @Override
