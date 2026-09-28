@@ -165,8 +165,8 @@ class AnonymousLinkResourceTest {
         verify(event).event(EventType.CLIENT_INITIATED_ACCOUNT_LINKING);
         verify(event).user(guest);
         verify(event).client(client);
-        verify(event).detail("moma_anon_link", "code_issued");
-        verify(event).detail("moma_anon_guest", "guest-7");
+        verify(event).detail("anon_link", "code_issued");
+        verify(event).detail("anon_guest", "guest-7");
         verify(event).success();
         verify(event, never()).error(anyString());
     }
@@ -176,7 +176,7 @@ class AnonymousLinkResourceTest {
         resourceReturning(null).linkCode();
 
         verify(event).event(EventType.CLIENT_INITIATED_ACCOUNT_LINKING);
-        verify(event).detail("moma_anon_link", "refused");
+        verify(event).detail("anon_link", "refused");
         verify(event).detail(Details.REASON, "invalid_token");
         verify(event).error(Errors.INVALID_TOKEN);
         verify(event, never()).success();
@@ -191,10 +191,10 @@ class AnonymousLinkResourceTest {
         resourceReturning(authResult).linkCode();
 
         verify(event).user(guest);
-        verify(event).detail("moma_anon_link", "refused");
+        verify(event).detail("anon_link", "refused");
         verify(event).detail(Details.REASON, "not_anonymous");
         verify(event).error(Errors.NOT_ALLOWED);
-        verify(event, never()).detail(eq("moma_anon_guest"), anyString());
+        verify(event, never()).detail(eq("anon_guest"), anyString());
         verify(event, never()).success();
     }
 }

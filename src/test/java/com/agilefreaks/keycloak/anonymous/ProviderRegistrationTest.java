@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The names the realm config and the app depend on. A rename here breaks `terraform apply`
- * ("authenticator not found") or the client's token call, neither of which the compiler sees.
+ * The names realm configuration and clients depend on. A rename here breaks a flow that references
+ * the step ("authenticator not found") or the client's token call, neither of which the compiler sees.
  */
 class ProviderRegistrationTest {
 
@@ -41,7 +41,7 @@ class ProviderRegistrationTest {
     }
 
     @Test
-    void theLinkStepKeepsTheIdTerraformReferences() {
+    void theLinkStepKeepsTheIdFlowsReference() {
         assertThat(new AnonymousLinkAuthenticatorFactory().getId()).isEqualTo("anonymous-link");
     }
 

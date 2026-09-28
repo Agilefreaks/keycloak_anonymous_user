@@ -15,10 +15,9 @@ import java.util.Map;
 /**
  * Deletes guests nobody has used in a while, sessions and all.
  *
- * <p>Idleness is measured from the last token refresh, not from the row's age: the realm's
- * sessions run to 180 days idle and a year long, so waiting for a guest's session to disappear
- * means waiting the better part of a year, while a flat age cap would delete the identity of
- * someone still using the app. A guest that comes back after the cutoff simply gets a new one,
+ * <p>Idleness is measured from the last token refresh, not from the row's age: a realm with
+ * long-lived sessions would keep an abandoned guest for as long as its session lasts, while a
+ * flat age cap would delete the identity of someone still using the app. A guest that comes back after the cutoff simply gets a new one,
  * exactly as if the app had been reinstalled.
  *
  * <p>Guest tokens can be minted by anyone holding the public client id, so this is the backstop

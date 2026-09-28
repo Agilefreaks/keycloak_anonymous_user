@@ -61,7 +61,7 @@ class GuestReaperTaskTest {
         when(session.users()).thenReturn(users);
         when(session.sessions()).thenReturn(sessions);
         when(realms.getRealmsStream()).thenReturn(Stream.of(realm));
-        when(realm.getName()).thenReturn("moma");
+        when(realm.getName()).thenReturn("example");
         // thenAnswer, not thenReturn: a Stream is consumed once and every guest triggers a lookup.
         when(sessions.getUserSessionsStream(any(), any(UserModel.class)))
                 .thenAnswer(invocation -> Stream.empty());

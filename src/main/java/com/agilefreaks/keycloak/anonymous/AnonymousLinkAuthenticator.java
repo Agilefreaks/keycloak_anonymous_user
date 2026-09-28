@@ -17,12 +17,12 @@ import java.util.Map;
 /**
  * Links the guest session the client came from to the account it just signed into.
  *
- * <p>The email account stays the account: the guest subject is appended to its {@code anon_subs}
- * attribute, which the API reconciles against to move the guest's data across. That works whether
- * or not the email already had an account.
+ * <p>The account signed into stays the account: the guest subject is appended to its
+ * {@code anon_subs} attribute, which a resource server reconciles against to move the guest's data
+ * across. That works whether or not the account existed before this login.
  *
- * <p>Runs after the step that proves the email — a link code must never move data onto an account
- * before its owner is established — and before CRM enrichment.
+ * <p>Runs after the step that proves the credential — a link code must never move data onto an account
+ * before its owner is established.
  *
  * <p>A missing, expired or replayed code is never fatal: signing in matters more than linking.
  */
@@ -46,19 +46,19 @@ public class AnonymousLinkAuthenticator implements Authenticator {
         String guestSub = notes == null ? null : notes.get(LinkCodes.NOTE_GUEST_SUB);
         if (guestSub == null) {
             LOG.debug("anonymous link code unknown, expired or already used — continuing without linking");
-            context.getEvent().detail("moma_anon_link", "invalid");
+            context.getEvent().detail("anon_link", "invalid");
             context.success();
             return;
         }
         if (guestSub.equals(realUser.getId())) {
-            context.getEvent().detail("moma_anon_link", "self");
+            context.getEvent().detail("anon_link", "self");
             context.success();
             return;
         }
 
         GuestIdentity.recordLink(realUser, guestSub);
 
-        EventBuilder event = context.getEvent().detail("moma_anon_link", "linked").detail("moma_anon_guest", guestSub);
+        EventBuilder event = context.getEvent().detail("anon_link", "linked").detail("anon_guest", guestSub);
         UserModel guest = context.getSession().users().getUserById(context.getRealm(), guestSub);
         if (GuestIdentity.isGuest(guest)) {
             recordGuestAge(event, guest);
@@ -77,8 +77,8 @@ public class AnonymousLinkAuthenticator implements Authenticator {
         if (created <= 0) {
             return;
         }
-        event.detail("moma_anon_guest_created_at", Instant.ofEpochSecond(created).toString())
-                .detail("moma_anon_guest_age_days", String.valueOf((Time.currentTime() - created) / 86_400));
+        event.detail("anon_guest_created_at", Instant.ofEpochSecond(created).toString())
+                .detail("anon_guest_age_days", String.valueOf((Time.currentTime() - created) / 86_400));
     }
 
     /** The direct grant has no authorize request: the app posts the code with its credentials. */

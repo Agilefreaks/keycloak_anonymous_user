@@ -50,7 +50,7 @@ class LinkCodesTest {
 
         ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
         verify(singleUse).put(key.capture(), anyLong(), anyMap());
-        assertThat(key.getValue()).isEqualTo("moma.anon.link." + code);
+        assertThat(key.getValue()).isEqualTo("anonymous.link." + code);
     }
 
     @Test
@@ -61,7 +61,7 @@ class LinkCodesTest {
         Map<String, String> notes = LinkCodes.consume(session, "somecode");
 
         assertThat(notes).containsEntry(LinkCodes.NOTE_GUEST_SUB, "guest-9");
-        verify(singleUse).remove("moma.anon.link.somecode");
+        verify(singleUse).remove("anonymous.link.somecode");
     }
 
     @Test

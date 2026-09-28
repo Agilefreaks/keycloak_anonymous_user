@@ -69,7 +69,7 @@ public class AnonymousLinkResource implements RealmResourceProvider {
         UserModel guest = auth.user();
         String code = LinkCodes.issue(session, guest.getId());
         LOG.debugf("issued anonymous link code for guest %s", guest.getId());
-        event.detail("moma_anon_link", "code_issued").detail("moma_anon_guest", guest.getId()).success();
+        event.detail("anon_link", "code_issued").detail("anon_guest", guest.getId()).success();
 
         return json(Response.Status.OK, Map.of(
                 "link_code", code,
@@ -87,7 +87,7 @@ public class AnonymousLinkResource implements RealmResourceProvider {
     }
 
     private static void refused(EventBuilder event, String error, String reason) {
-        event.detail("moma_anon_link", "refused").detail(Details.REASON, reason).error(error);
+        event.detail("anon_link", "refused").detail(Details.REASON, reason).error(error);
     }
 
     /**

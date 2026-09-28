@@ -92,7 +92,7 @@ class AnonymousLinkAuthenticatorTest {
         verify(context).success();
         verify(singleUse, never()).remove(anyString());
         verify(realUser, never()).setAttribute(anyString(), any());
-        verify(event, never()).detail(eq("moma_anon_link"), anyString());
+        verify(event, never()).detail(eq("anon_link"), anyString());
     }
 
     @Test
@@ -115,8 +115,8 @@ class AnonymousLinkAuthenticatorTest {
 
         verify(realUser).setAttribute(eq(GuestIdentity.ATTR_LINKED_SUBS), eq(List.of("guest-1")));
         verify(users).removeUser(realm, guest);
-        verify(event).detail("moma_anon_link", "linked");
-        verify(event).detail("moma_anon_guest", "guest-1");
+        verify(event).detail("anon_link", "linked");
+        verify(event).detail("anon_guest", "guest-1");
         verify(context).success();
     }
 
@@ -129,7 +129,7 @@ class AnonymousLinkAuthenticatorTest {
 
         verify(context).success();
         verify(realUser, never()).setAttribute(anyString(), any());
-        verify(event).detail("moma_anon_link", "invalid");
+        verify(event).detail("anon_link", "invalid");
     }
 
     @Test
@@ -155,7 +155,7 @@ class AnonymousLinkAuthenticatorTest {
 
         verify(realUser, never()).setAttribute(anyString(), any());
         verify(users, never()).removeUser(any(), any());
-        verify(event).detail("moma_anon_link", "self");
+        verify(event).detail("anon_link", "self");
         verify(context).success();
     }
 
@@ -169,8 +169,8 @@ class AnonymousLinkAuthenticatorTest {
 
         authenticator.authenticate(context);
 
-        verify(event).detail("moma_anon_guest_created_at", Instant.ofEpochSecond(created).toString());
-        verify(event).detail("moma_anon_guest_age_days", "3");
+        verify(event).detail("anon_guest_created_at", Instant.ofEpochSecond(created).toString());
+        verify(event).detail("anon_guest_age_days", "3");
     }
 
     @Test
@@ -181,8 +181,8 @@ class AnonymousLinkAuthenticatorTest {
 
         authenticator.authenticate(context);
 
-        verify(event).detail("moma_anon_link", "linked");
-        verify(event, never()).detail(eq("moma_anon_guest_created_at"), anyString());
-        verify(event, never()).detail(eq("moma_anon_guest_age_days"), anyString());
+        verify(event).detail("anon_link", "linked");
+        verify(event, never()).detail(eq("anon_guest_created_at"), anyString());
+        verify(event, never()).detail(eq("anon_guest_age_days"), anyString());
     }
 }

@@ -105,6 +105,7 @@ class GuestReaperSchedulerTest {
         scheduler.create(null).close();
         scheduler.init(null);
         scheduler.close();
-        assertThat(scheduler.getId()).isEqualTo("moma-anon-reaper");
+        assertThat(scheduler.getId()).isEqualTo("anonymous-reaper");
+        assertThat(GuestReaperScheduler.TASK_NAME).isEqualTo("anonymous-guest-reaper");
     }
 }

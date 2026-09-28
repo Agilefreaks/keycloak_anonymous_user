@@ -22,7 +22,7 @@ import java.util.List;
  */
 public final class GuestIdentity {
 
-    /** The realm role every guest carries; the API's "this is a guest" signal. */
+    /** The realm role every guest carries; a resource server's "this is a guest" signal. */
     public static final String ROLE = "anonymous";
     /** Marks a user as a guest. */
     public static final String ATTR_ANON = "anon";

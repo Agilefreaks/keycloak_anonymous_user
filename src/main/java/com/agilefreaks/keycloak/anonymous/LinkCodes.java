@@ -20,7 +20,7 @@ final class LinkCodes {
 
     static final int TTL_SECONDS = 300;
 
-    private static final String KEY_PREFIX = "moma.anon.link.";
+    private static final String KEY_PREFIX = "anonymous.link.";
     private static final int CODE_LENGTH = 32;
 
     private LinkCodes() {

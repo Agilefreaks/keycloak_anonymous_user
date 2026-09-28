@@ -75,7 +75,7 @@ public class AnonymousGrantType extends OAuth2GrantTypeBase {
                 clientConnection.getRemoteHost(), GRANT_TYPE, false, null, null,
                 UserSessionModel.SessionPersistenceState.PERSISTENT);
 
-        event.user(guest).session(userSession).detail("moma_anon", "true");
+        event.user(guest).session(userSession).detail("anon", "true");
 
         AuthenticationManager.setClientScopesInSession(session, authSession);
         ClientSessionContext clientSessionCtx =

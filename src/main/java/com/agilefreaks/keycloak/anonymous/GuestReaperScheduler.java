@@ -14,16 +14,16 @@ import org.keycloak.timer.TimerProvider;
  * Registers {@link GuestReaperTask} on Keycloak's timer at boot.
  *
  * <p>It is an event-listener factory only because {@code postInit} is the hook an extension gets at
- * server start — the listener itself does nothing and does not need enabling on any realm. Safe to
- * schedule unguarded because Cloud Run runs this image at {@code min=max=1}; a clustered deployment
- * would want {@code ClusterProvider.executeIfNotExecuted} around the task body.
+ * server start — the listener itself does nothing and does not need enabling on any realm. Scheduled
+ * unguarded, so it assumes a single Keycloak instance; a clustered deployment would want
+ * {@code ClusterProvider.executeIfNotExecuted} around the task body.
  */
 public class GuestReaperScheduler implements EventListenerProviderFactory {
 
     private static final Logger LOG = Logger.getLogger(GuestReaperScheduler.class);
 
-    public static final String PROVIDER_ID = "moma-anon-reaper";
-    static final String TASK_NAME = "moma-anon-guest-reaper";
+    public static final String PROVIDER_ID = "anonymous-reaper";
+    static final String TASK_NAME = "anonymous-guest-reaper";
 
     private static final EventListenerProvider NOOP = new EventListenerProvider() {
         @Override
