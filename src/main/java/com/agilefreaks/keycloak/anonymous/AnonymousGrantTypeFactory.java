@@ -8,6 +8,7 @@ import org.keycloak.protocol.oidc.grants.OAuth2GrantTypeFactory;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Clock;
 
 public class AnonymousGrantTypeFactory implements OAuth2GrantTypeFactory {
 
@@ -21,7 +22,10 @@ public class AnonymousGrantTypeFactory implements OAuth2GrantTypeFactory {
     static final String SCOPE = "anonymous";
     static final String OPTION_URI = "uri";
 
+    private final AttestationVerifier verifier = new HttpAttestationVerifier();
+
     private String grantType;
+    private MintOptions mintOptions;
 
     static Config.Scope options() {
         return Config.scope(SPI, SCOPE);
@@ -70,11 +74,18 @@ public class AnonymousGrantTypeFactory implements OAuth2GrantTypeFactory {
 
     @Override
     public OAuth2GrantType create(KeycloakSession session) {
-        return new AnonymousGrantType(getId());
+        return new AnonymousGrantType(getId(),
+                new MintGuard(mintOptions, new SingleUseObjectCounterStore(session), Clock.systemUTC(), verifier));
     }
 
+    /** {@code config} is scoped by {@link #getId()}, the URN; the options live under {@code anonymous}. */
     @Override
     public void init(Config.Scope config) {
+        mintOptions = MintOptions.from(options());
+    }
+
+    MintOptions mintOptions() {
+        return mintOptions;
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.agilefreaks.keycloak.anonymous;
 
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.OAuthErrorException;
@@ -14,15 +15,20 @@ import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.protocol.oidc.TokenManager;
 import org.keycloak.protocol.oidc.grants.OAuth2GrantTypeBase;
 import org.keycloak.services.CorsErrorResponseException;
+import org.keycloak.services.ErrorResponseException;
 import org.keycloak.services.Urls;
 import org.keycloak.services.managers.AuthenticationManager;
 import org.keycloak.services.managers.AuthenticationSessionManager;
 import org.keycloak.services.managers.UserSessionManager;
 import org.keycloak.sessions.AuthenticationSessionModel;
 import org.keycloak.sessions.RootAuthenticationSessionModel;
+import org.keycloak.util.JsonSerialization;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,15 +46,22 @@ import java.util.Set;
  * <p>The {@code anonymous} client scope is required: being assigned it is what entitles a client to
  * guest sessions at all, and Keycloak refuses the request for a client that lacks it. The guest
  * marker itself is the realm role on the row, not the scope — see {@link GuestIdentity}.
+ *
+ * <p>Anyone holding a public client id can call this, and each call is a user row, so a mint must
+ * pass {@link MintGuard} first; a refused one writes nothing.
  */
 public class AnonymousGrantType extends OAuth2GrantTypeBase {
 
     static final String ANONYMOUS_SCOPE = GuestIdentity.ROLE;
 
-    private final String grantType;
+    static final String DETAIL_REJECT = "anon_reject";
 
-    AnonymousGrantType(String grantType) {
+    private final String grantType;
+    private final MintGuard guard;
+
+    AnonymousGrantType(String grantType, MintGuard guard) {
         this.grantType = grantType;
+        this.guard = guard;
     }
 
     String grantType() {
@@ -63,12 +76,18 @@ public class AnonymousGrantType extends OAuth2GrantTypeBase {
         // The first is ours to enforce — Keycloak checks the client's entitlement only for scopes
         // that are requested, so without it any client could mint a guest.
         if (!requestsAnonymousScope(formParams.getFirst(OAuth2Constants.SCOPE))) {
-            event.detail(Details.REASON, "anonymous scope not requested");
+            event.detail(Details.REASON, "anonymous scope not requested").detail(DETAIL_REJECT, "scope");
             event.error(Errors.INVALID_REQUEST);
             throw new CorsErrorResponseException(cors, OAuthErrorException.INVALID_SCOPE,
                     "This grant requires the 'anonymous' scope", Response.Status.BAD_REQUEST);
         }
-        String scope = getRequestedScopes();
+        // Before the guard, so a client that is not entitled to the scope spends nobody's budget.
+        String scope = entitledScopes();
+        MintRateGate.Decision decision = guard.check(realm.getId(), clientConnection.getRemoteAddr(),
+                headers::getHeaderString);
+        if (!decision.allowed()) {
+            throw refuse(decision);
+        }
 
         RootAuthenticationSessionModel rootAuthSession =
                 new AuthenticationSessionManager(session).createAuthenticationSession(realm, false);
@@ -97,6 +116,35 @@ public class AnonymousGrantType extends OAuth2GrantTypeBase {
         updateUserSessionFromClientAuth(userSession);
 
         return createTokenResponse(guest, userSession, clientSessionCtx, scope, true, null);
+    }
+
+    /** Seam for the specs: Keycloak's check needs a booted server. */
+    String entitledScopes() {
+        return getRequestedScopes();
+    }
+
+    /** Built by hand:{@link CorsErrorResponseException} cannot carry {@code retry_after}. */
+    private ErrorResponseException refuse(MintRateGate.Decision decision) {
+        MintRefusal refusal = decision.refusal();
+        event.detail(DETAIL_REJECT, refusal.detail);
+        if (decision.retryAfterSeconds() > 0) {
+            event.detail("retry_after", String.valueOf(decision.retryAfterSeconds()));
+        }
+        event.error(Errors.NOT_ALLOWED);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", refusal.error);
+        body.put("error_description", refusal.description);
+        if (refusal == MintRefusal.THROTTLED_IP) {
+            body.put("retry_after", decision.retryAfterSeconds());
+        }
+        try {
+            return new ErrorResponseException(cors.add(Response.status(refusal.status)
+                    .type(MediaType.APPLICATION_JSON_TYPE)
+                    .entity(JsonSerialization.writeValueAsString(body))));
+        } catch (IOException e) {
+            throw new IllegalStateException("failed to serialize the refusal", e);
+        }
     }
 
     /** Not {@code Set.of}: it throws on a repeated scope, turning a sloppy client into a 500. */

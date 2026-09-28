@@ -89,50 +89,15 @@ public class GuestReaperScheduler implements EventListenerProviderFactory {
     record Options(boolean enabled, int maxIdleDays, int unusedMaxIdleDays, int intervalMinutes, int batch) {
 
         static Options from(Config.Scope scope) {
-            Integer minutes = number(scope, "interval-minutes");
-            int hours = Math.max(1, orDefault(number(scope, "interval-hours"), 6));
+            SpiOptions options = new SpiOptions(scope, "spi-events-listener--" + PROVIDER_ID + "--");
+            Integer minutes = options.number("interval-minutes");
+            int hours = Math.max(1, options.number("interval-hours", 6));
             return new Options(
-                    flag(scope, "enabled", true),
-                    Math.max(0, orDefault(number(scope, "max-idle-days"), 30)),
-                    Math.max(0, orDefault(number(scope, "unused-max-idle-days"), 7)),
+                    options.flag("enabled", true),
+                    Math.max(0, options.number("max-idle-days", 30)),
+                    Math.max(0, options.number("unused-max-idle-days", 7)),
                     Math.max(1, minutes != null ? minutes : hours * 60),
-                    Math.max(1, orDefault(number(scope, "batch"), 500)));
-        }
-
-        private static String text(Config.Scope scope, String key) {
-            String raw = scope.get(key);
-            return raw == null || raw.isBlank() ? null : raw.trim();
-        }
-
-        private static boolean flag(Config.Scope scope, String key, boolean fallback) {
-            String raw = text(scope, key);
-            if (raw == null) {
-                return fallback;
-            }
-            if (raw.equalsIgnoreCase("true") || raw.equalsIgnoreCase("false")) {
-                return Boolean.parseBoolean(raw);
-            }
-            throw new IllegalArgumentException(invalid(key, "true or false", raw));
-        }
-
-        private static String invalid(String key, String expected, String raw) {
-            return "spi-events-listener--" + PROVIDER_ID + "--" + key + " must be " + expected + ", got '" + raw + "'";
-        }
-
-        private static Integer number(Config.Scope scope, String key) {
-            String raw = text(scope, key);
-            if (raw == null) {
-                return null;
-            }
-            try {
-                return Integer.parseInt(raw);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException(invalid(key, "a whole number", raw), e);
-            }
-        }
-
-        private static int orDefault(Integer value, int fallback) {
-            return value == null ? fallback : value;
+                    Math.max(1, options.number("batch", 500)));
         }
     }
 }
