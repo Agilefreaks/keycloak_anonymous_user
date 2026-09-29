@@ -44,13 +44,18 @@ public class AnonymousLinkAuthenticator implements Authenticator {
 
         Map<String, String> notes = LinkCodes.consume(context.getSession(), code);
         String guestSub = notes == null ? null : notes.get(LinkCodes.NOTE_GUEST_SUB);
+        // The login still succeeds, so these outcomes ride on a success event, which the logging
+        // listener emits at debug; warn here so a lost guest is visible in a production log.
         if (guestSub == null) {
-            LOG.debug("anonymous link code unknown, expired or already used — continuing without linking");
+            LOG.warnf("link code for user %s in realm %s is unknown, expired or already used; signing in without linking",
+                    realUser.getId(), context.getRealm().getName());
             context.getEvent().detail("anon_link", "invalid");
             context.success();
             return;
         }
         if (guestSub.equals(realUser.getId())) {
+            LOG.warnf("link code for user %s in realm %s names the user itself; signing in without linking",
+                    realUser.getId(), context.getRealm().getName());
             context.getEvent().detail("anon_link", "self");
             context.success();
             return;
